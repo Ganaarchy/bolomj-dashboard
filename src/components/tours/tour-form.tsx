@@ -140,31 +140,32 @@ export function TourForm({ tour }: { tour?: Tour }) {
       throw new Error("Cover image must be JPG, PNG, or WebP.");
     }
 
-    const upload = await api.createPresignedUpload({
+    const presigned = await api.createPresignedUpload({
       folder: "tours",
       fileName: file.name,
       contentType: file.type as CreatePresignedUploadPayload["contentType"],
     });
 
-    const response = await fetch(upload.uploadUrl, {
+    const uploadRes = await fetch(presigned.uploadUrl, {
       method: "PUT",
       headers: {
         "Content-Type": file.type,
+        "x-amz-acl": "public-read",
       },
       body: file,
     });
 
-    if (!response.ok) {
+    if (!uploadRes.ok) {
       throw new Error("Image upload failed.");
     }
 
     setForm((current) => ({
       ...current,
-      cover_image_url: upload.fileUrl,
+      cover_image_url: presigned.fileUrl,
     }));
     setCoverFile(null);
 
-    return upload.fileUrl;
+    return presigned.fileUrl;
   }
 
   async function handleCoverFileChange(file: File | null) {

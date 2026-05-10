@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 
 const BACKEND_API_BASE_URL =
-  process.env.BACKEND_API_BASE_URL ?? "https://api.bolomj.space";
+  (process.env.BACKEND_API_BASE_URL ?? "https://api.bolomj.space")
+    .replace(/\/+$/, "")
+    .replace(/\/uploads$/, "");
 
 const forwardedHeaders = ["accept", "authorization", "content-type"];
 

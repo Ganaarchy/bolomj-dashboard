@@ -21,7 +21,9 @@ import type {
 
 const API_BASE_URL = (
   process.env.NEXT_PUBLIC_API_BASE_URL ?? "/api/backend"
-).replace(/\/+$/, "");
+)
+  .replace(/\/+$/, "")
+  .replace(/\/uploads$/, "");
 
 type ApiFetchOptions = Omit<RequestInit, "body"> & {
   body?: unknown;
