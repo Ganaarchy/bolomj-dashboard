@@ -232,7 +232,7 @@ export type AdminTenantRequest = {
 };
 
 export type TenantRequestRejectPayload = {
-  reason?: string;
+  rejection_reason?: string;
 };
 
 export const STORAGE_KEYS = {

@@ -160,7 +160,7 @@ function TenantRequestsContent() {
     try {
       await api.rejectTenantRequest(
         rejectTarget.id,
-        reason ? { reason } : undefined,
+        reason ? { rejection_reason: reason } : undefined,
       );
       updateRequestStatus(
         reason ? { ...rejectTarget, rejection_reason: reason } : rejectTarget,

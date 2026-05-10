@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { ImageIcon, Save, Upload } from "lucide-react";
 import { api } from "@/lib/api";
+import { getStoredUser } from "@/lib/auth";
 import type {
   CreatePresignedUploadPayload,
   CreateTourPayload,
@@ -200,6 +201,14 @@ export function TourForm({ tour }: { tour?: Tour }) {
 
     if (Number(form.duration_days) < 1 || Number(form.price) < 0) {
       setError("Хугацаа болон үнэ зөв тоон утгатай байх ёстой.");
+      return;
+    }
+
+    const user = getStoredUser();
+    if (!user?.tenant_id) {
+      setError(
+        "Аялал үүсгэхэд tenant_admin эрхтэй, tenant холбогдсон хэрэглэгч шаардлагатай.",
+      );
       return;
     }
 
