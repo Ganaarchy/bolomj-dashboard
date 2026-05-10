@@ -30,6 +30,8 @@ export type BookingStatus =
 
 export type TenantStatus = "pending" | "active" | "suspended";
 
+export type TenantRequestStatus = "pending" | "approved" | "rejected";
+
 export type AuthUser = {
   id: string;
   email: string;
@@ -195,6 +197,42 @@ export type CreateTenantResponse = {
 export type TenantStatusUpdateResponse = {
   message: string;
   data: AdminTenant;
+};
+
+export type AdminTenantRequest = {
+  id: string;
+  organization?: {
+    name?: string | null;
+    registration_number?: string | null;
+    email?: string | null;
+    phone?: string | null;
+    description?: string | null;
+  } | null;
+  organization_name?: string | null;
+  tenant_name?: string | null;
+  company_name?: string | null;
+  name?: string | null;
+  slug?: string | null;
+  registration_number?: string | null;
+  email?: string | null;
+  phone?: string | null;
+  description?: string | null;
+  website_subdomain: string | null;
+  requested_website_subdomain?: string | null;
+  requested_subdomain?: string | null;
+  admin_email?: string | null;
+  admin_first_name?: string | null;
+  admin_last_name?: string | null;
+  status: TenantRequestStatus;
+  rejection_reason?: string | null;
+  created_at: string;
+  updated_at?: string | null;
+  approved_at?: string | null;
+  rejected_at?: string | null;
+};
+
+export type TenantRequestRejectPayload = {
+  reason?: string;
 };
 
 export const STORAGE_KEYS = {

@@ -1,6 +1,7 @@
 import { clearAuth, getToken } from "@/lib/auth";
 import type {
   AdminTenant,
+  AdminTenantRequest,
   ApiDataResponse,
   ApiErrorResponse,
   AuthUser,
@@ -13,6 +14,7 @@ import type {
   LoginResponse,
   PresignedUploadResponse,
   TenantBooking,
+  TenantRequestRejectPayload,
   TenantStatus,
   Tour,
   UpdateBookingStatusPayload,
@@ -180,6 +182,23 @@ export const api = {
     return apiFetch<AdminTenant>(`/admin/tenants/${id}/status`, {
       method: "PATCH",
       body: { status },
+    });
+  },
+  tenantRequests() {
+    return apiFetch<AdminTenantRequest[]>("/admin/tenant-requests");
+  },
+  tenantRequest(id: string) {
+    return apiFetch<AdminTenantRequest>(`/admin/tenant-requests/${id}`);
+  },
+  approveTenantRequest(id: string) {
+    return apiFetch<AdminTenantRequest>(`/admin/tenant-requests/${id}/approve`, {
+      method: "PATCH",
+    });
+  },
+  rejectTenantRequest(id: string, body?: TenantRequestRejectPayload) {
+    return apiFetch<AdminTenantRequest>(`/admin/tenant-requests/${id}/reject`, {
+      method: "PATCH",
+      body,
     });
   },
   createPresignedUpload(body: CreatePresignedUploadPayload) {

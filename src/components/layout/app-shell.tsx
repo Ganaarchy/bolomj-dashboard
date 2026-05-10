@@ -6,6 +6,7 @@ import {
   BarChart3,
   Building2,
   CalendarCheck,
+  ClipboardList,
   LogOut,
   Menu,
   Plane,
@@ -26,6 +27,12 @@ const navigation: Array<{
     href: "/admin/tenants",
     label: "Тенантууд",
     icon: Building2,
+    roles: ["system_admin"],
+  },
+  {
+    href: "/admin/tenant-requests",
+    label: "Бүртгэлийн хүсэлтүүд",
+    icon: ClipboardList,
     roles: ["system_admin"],
   },
   {
