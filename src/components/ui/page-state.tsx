@@ -1,4 +1,4 @@
-import { AlertCircle, Loader2, SearchX } from "lucide-react";
+import { AlertCircle, Loader2, Lock, SearchX } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 export function LoadingState({ label = "Ачааллаж байна..." }: { label?: string }) {
@@ -29,6 +29,20 @@ export function ErrorState({
           Дахин оролдох
         </Button>
       ) : null}
+    </div>
+  );
+}
+
+export function ForbiddenState({
+  message = "Энэ хэсэгт хандах эрх хүрэлцэхгүй байна.",
+}: {
+  message?: string;
+}) {
+  return (
+    <div className="flex min-h-64 flex-col items-center justify-center rounded-lg border border-dashed bg-white p-6 text-center">
+      <Lock className="mb-3 h-8 w-8 text-muted-foreground" />
+      <p className="text-sm font-medium">Хандах эрхгүй</p>
+      <p className="mt-1 max-w-md text-sm text-muted-foreground">{message}</p>
     </div>
   );
 }

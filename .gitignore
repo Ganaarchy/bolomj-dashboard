@@ -11,7 +11,8 @@ out/
 # production
 build/
 dist/
-
+codex.md
+docs
 # env
 .env
 .env.*

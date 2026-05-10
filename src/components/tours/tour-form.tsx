@@ -4,7 +4,7 @@ import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Save } from "lucide-react";
 import { api } from "@/lib/api";
-import type { Tour, TourPayload, TourStatus } from "@/lib/types";
+import type { CreateTourPayload, Tour, TourStatus, UpdateTourPayload } from "@/lib/types";
 import { getErrorMessage } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -80,7 +80,7 @@ export function TourForm({ tour }: { tour?: Tour }) {
     setForm((current) => ({ ...current, [key]: value }));
   }
 
-  function toPayload(): TourPayload {
+  function toPayload(): CreateTourPayload | UpdateTourPayload {
     return {
       title: form.title.trim(),
       slug: form.slug.trim(),
@@ -126,7 +126,7 @@ export function TourForm({ tour }: { tour?: Tour }) {
       if (mode === "edit" && tour) {
         await api.updateTour(tour.id, toPayload());
       } else {
-        await api.createTour(toPayload());
+        await api.createTour(toPayload() as CreateTourPayload);
       }
       router.push("/tours");
       router.refresh();

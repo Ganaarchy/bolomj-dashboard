@@ -2,15 +2,15 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { Building2, Plus, X } from "lucide-react";
-import { api } from "@/lib/api";
-import type { AdminTenant, CreateTenantPayload, TenantStatus } from "@/lib/types";
+import { ApiError, api } from "@/lib/api";
+import type { AdminTenant, AuthUser, CreateTenantPayload, TenantStatus } from "@/lib/types";
 import { formatDate, getErrorMessage } from "@/lib/utils";
 import { SecureLayout } from "@/components/layout/secure-layout";
 import { PageHeader } from "@/components/layout/page-header";
 import { TenantStatusBadge } from "@/components/admin/tenant-status-badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { EmptyState, ErrorState, LoadingState } from "@/components/ui/page-state";
+import { EmptyState, ErrorState, ForbiddenState, LoadingState } from "@/components/ui/page-state";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
@@ -48,34 +48,45 @@ function compactPayload(form: CreateTenantPayload): CreateTenantPayload {
   return {
     name: form.name.trim(),
     slug: form.slug.trim(),
-    registration_number: form.registration_number?.trim() || undefined,
-    email: form.email?.trim() || undefined,
-    phone: form.phone?.trim() || undefined,
-    description: form.description?.trim() || undefined,
+    registration_number: form.registration_number?.trim() || null,
+    email: form.email?.trim() || null,
+    phone: form.phone?.trim() || null,
+    description: form.description?.trim() || null,
     website_subdomain: form.website_subdomain.trim(),
     admin_email: form.admin_email.trim(),
     admin_password: form.admin_password,
     admin_first_name: form.admin_first_name.trim(),
-    admin_last_name: form.admin_last_name?.trim() || undefined,
+    admin_last_name: form.admin_last_name?.trim() || null,
   };
+}
+
+function adminName(user: AuthUser) {
+  return [user.first_name, user.last_name].filter(Boolean).join(" ") || user.email;
 }
 
 function TenantsContent() {
   const [tenants, setTenants] = useState<AdminTenant[]>([]);
   const [form, setForm] = useState<CreateTenantPayload>(emptyTenantForm);
+  const [createdAdmin, setCreatedAdmin] = useState<AuthUser | null>(null);
   const [showCreate, setShowCreate] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [updatingId, setUpdatingId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [forbidden, setForbidden] = useState(false);
 
   const loadTenants = useCallback(async () => {
     setLoading(true);
     setError(null);
+    setForbidden(false);
     try {
       setTenants(await api.tenants());
     } catch (err) {
-      setError(getErrorMessage(err));
+      if (err instanceof ApiError && err.status === 403) {
+        setForbidden(true);
+      } else {
+        setError(getErrorMessage(err));
+      }
     } finally {
       setLoading(false);
     }
@@ -92,9 +103,11 @@ function TenantsContent() {
     event.preventDefault();
     setSaving(true);
     setError(null);
+    setCreatedAdmin(null);
     try {
       const created = await api.createTenant(compactPayload(form));
-      setTenants((current) => [created, ...current]);
+      setTenants((current) => [created.tenant, ...current]);
+      setCreatedAdmin(created.adminUser);
       setForm(emptyTenantForm);
       setShowCreate(false);
     } catch (err) {
@@ -137,6 +150,14 @@ function TenantsContent() {
       />
 
       {error ? <ErrorState message={error} onRetry={loadTenants} /> : null}
+      {forbidden ? <ForbiddenState /> : null}
+
+      {createdAdmin ? (
+        <div className="mb-6 rounded-md border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-800">
+          Tenant үүссэн. Анхны tenant admin: {adminName(createdAdmin)} (
+          {createdAdmin.email})
+        </div>
+      ) : null}
 
       {showCreate ? (
         <Card className="mb-6">
@@ -181,7 +202,7 @@ function TenantsContent() {
                 <Label htmlFor="registration_number">Регистр</Label>
                 <Input
                   id="registration_number"
-                  value={form.registration_number}
+                  value={form.registration_number ?? ""}
                   onChange={(event) =>
                     updateForm("registration_number", event.target.value)
                   }
@@ -192,7 +213,7 @@ function TenantsContent() {
                 <Input
                   id="email"
                   type="email"
-                  value={form.email}
+                  value={form.email ?? ""}
                   onChange={(event) => updateForm("email", event.target.value)}
                 />
               </div>
@@ -200,7 +221,7 @@ function TenantsContent() {
                 <Label htmlFor="phone">Утас</Label>
                 <Input
                   id="phone"
-                  value={form.phone}
+                  value={form.phone ?? ""}
                   onChange={(event) => updateForm("phone", event.target.value)}
                 />
               </div>
@@ -226,6 +247,7 @@ function TenantsContent() {
                     updateForm("admin_password", event.target.value)
                   }
                   required
+                  minLength={6}
                 />
               </div>
               <div className="space-y-2">
@@ -243,7 +265,7 @@ function TenantsContent() {
                 <Label htmlFor="admin_last_name">Admin овог</Label>
                 <Input
                   id="admin_last_name"
-                  value={form.admin_last_name}
+                  value={form.admin_last_name ?? ""}
                   onChange={(event) =>
                     updateForm("admin_last_name", event.target.value)
                   }
@@ -253,7 +275,7 @@ function TenantsContent() {
                 <Label htmlFor="description">Тайлбар</Label>
                 <Textarea
                   id="description"
-                  value={form.description}
+                  value={form.description ?? ""}
                   onChange={(event) =>
                     updateForm("description", event.target.value)
                   }
@@ -277,13 +299,13 @@ function TenantsContent() {
       ) : null}
 
       {loading ? <LoadingState /> : null}
-      {!loading && !error && tenants.length === 0 ? (
+      {!loading && !forbidden && !error && tenants.length === 0 ? (
         <EmptyState
           title="Tenant бүртгэгдээгүй байна"
           description="Шинэ tenant үүсгээд platform-д байгууллага нэмнэ."
         />
       ) : null}
-      {!loading && tenants.length > 0 ? (
+      {!loading && !forbidden && tenants.length > 0 ? (
         <Card>
           <CardContent className="p-0">
             <Table>
@@ -311,7 +333,7 @@ function TenantsContent() {
                         {tenant.phone || "-"}
                       </div>
                     </TableCell>
-                    <TableCell>{tenant.website_subdomain}</TableCell>
+                    <TableCell>{tenant.website_subdomain || "-"}</TableCell>
                     <TableCell>
                       {tenant.marketplace_enabled ? "Идэвхтэй" : "Идэвхгүй"}
                     </TableCell>

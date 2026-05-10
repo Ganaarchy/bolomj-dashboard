@@ -1,23 +1,24 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { api } from "@/lib/api";
+import { ApiError, api } from "@/lib/api";
 import { getStoredUser, getToken, redirectByRole, setStoredUser } from "@/lib/auth";
-import type { AuthUser, UserRole } from "@/lib/types";
+import type { AuthUser, DashboardRole } from "@/lib/types";
 import { getErrorMessage } from "@/lib/utils";
 import { AppShell } from "@/components/layout/app-shell";
-import { ErrorState, LoadingState } from "@/components/ui/page-state";
+import { ErrorState, ForbiddenState, LoadingState } from "@/components/ui/page-state";
 
 export function SecureLayout({
   roles,
   children,
 }: {
-  roles: UserRole[];
+  roles: DashboardRole[];
   children: React.ReactNode;
 }) {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [forbidden, setForbidden] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -29,7 +30,7 @@ export function SecureLayout({
       }
 
       const cached = getStoredUser();
-      if (cached && !roles.includes(cached.role)) {
+      if (cached && cached.role !== "system_admin" && cached.role !== "tenant_admin") {
         redirectByRole(cached.role);
         return;
       }
@@ -43,14 +44,20 @@ export function SecureLayout({
         const me = await api.me();
         if (cancelled) return;
         setStoredUser(me);
-        if (!roles.includes(me.role)) {
+        if (me.role !== "system_admin" && me.role !== "tenant_admin") {
           redirectByRole(me.role);
           return;
         }
         setUser(me);
         setError(null);
+        setForbidden(false);
       } catch (err) {
-        if (!cancelled) setError(getErrorMessage(err));
+        if (cancelled) return;
+        if (err instanceof ApiError && err.status === 403) {
+          setForbidden(true);
+        } else {
+          setError(getErrorMessage(err));
+        }
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -61,12 +68,20 @@ export function SecureLayout({
     return () => {
       cancelled = true;
     };
-  }, [roles]);
+  }, []);
 
   if (loading) {
     return (
       <div className="min-h-screen p-6">
         <LoadingState label="Эрх шалгаж байна..." />
+      </div>
+    );
+  }
+
+  if (forbidden) {
+    return (
+      <div className="min-h-screen p-6">
+        <ForbiddenState />
       </div>
     );
   }
@@ -80,6 +95,14 @@ export function SecureLayout({
   }
 
   if (!user) return null;
+
+  if (!roles.includes(user.role as DashboardRole)) {
+    return (
+      <AppShell user={user}>
+        <ForbiddenState />
+      </AppShell>
+    );
+  }
 
   return <AppShell user={user}>{children}</AppShell>;
 }

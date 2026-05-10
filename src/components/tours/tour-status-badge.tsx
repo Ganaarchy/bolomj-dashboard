@@ -1,7 +1,10 @@
 import { Badge } from "@/components/ui/badge";
 import type { TourStatus } from "@/lib/types";
 
-const statusMap: Record<TourStatus, { label: string; variant: "secondary" | "success" | "warning" }> = {
+const statusMap: Record<
+  TourStatus,
+  { label: string; variant: "secondary" | "success" | "warning" }
+> = {
   draft: { label: "Ноорог", variant: "warning" },
   published: { label: "Нийтэлсэн", variant: "success" },
   archived: { label: "Архивласан", variant: "secondary" },

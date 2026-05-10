@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { LockKeyhole, LogIn } from "lucide-react";
 import { api } from "@/lib/api";
-import { getToken, redirectByRole, setStoredUser, setToken } from "@/lib/auth";
+import { clearAuth, getToken, redirectByRole, setStoredUser, setToken } from "@/lib/auth";
 import { getErrorMessage } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -25,7 +25,7 @@ export default function LoginPage() {
         redirectByRole(user.role);
       })
       .catch(() => {
-        window.localStorage.clear();
+        clearAuth();
       });
   }, []);
 
@@ -36,26 +36,12 @@ export default function LoginPage() {
 
     try {
       const response = await api.login({ email, password });
-
-      const token =
-        response.accessToken ??
-        response.token ??
-        response.access_token ??
-        response.jwt;
-
-      if (!token) {
-        console.log("LOGIN RESPONSE:", response);
-        throw new Error("JWT token response дотор олдсонгүй.");
-      }
-
-      setToken(token);
-
-      const user = response.user ?? (await api.me());
-      setStoredUser(user);
-      redirectByRole(user.role);
+      setToken(response.accessToken);
+      setStoredUser(response.user);
+      redirectByRole(response.user.role);
     } catch (err) {
       setError(getErrorMessage(err));
-    } finally { 
+    } finally {
       setLoading(false);
     }
   }

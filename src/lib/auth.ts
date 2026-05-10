@@ -1,46 +1,49 @@
-import type { AuthUser } from "@/lib/types";
-
-const TOKEN_KEY = "bolomj_dashboard_token";
-const USER_KEY = "bolomj_dashboard_user";
+import { STORAGE_KEYS, type AuthUser } from "@/lib/types";
 
 export function getToken() {
   if (typeof window === "undefined") return null;
-  return window.localStorage.getItem(TOKEN_KEY);
+  return window.localStorage.getItem(STORAGE_KEYS.accessToken);
 }
 
 export function setToken(token: string) {
-  window.localStorage.setItem(TOKEN_KEY, token);
+  window.localStorage.setItem(STORAGE_KEYS.accessToken, token);
 }
 
-export function clearToken() {
+export function clearAuth() {
   if (typeof window === "undefined") return;
-  window.localStorage.removeItem(TOKEN_KEY);
-  window.localStorage.removeItem(USER_KEY);
+  window.localStorage.removeItem(STORAGE_KEYS.accessToken);
+  window.localStorage.removeItem(STORAGE_KEYS.user);
 }
 
 export function setStoredUser(user: AuthUser) {
-  window.localStorage.setItem(USER_KEY, JSON.stringify(user));
+  window.localStorage.setItem(STORAGE_KEYS.user, JSON.stringify(user));
 }
 
 export function getStoredUser(): AuthUser | null {
   if (typeof window === "undefined") return null;
 
-  const raw = window.localStorage.getItem(USER_KEY);
+  const raw = window.localStorage.getItem(STORAGE_KEYS.user);
   if (!raw) return null;
 
   try {
     return JSON.parse(raw) as AuthUser;
   } catch {
-    clearToken();
+    clearAuth();
     return null;
   }
 }
 
 export function logout() {
-  clearToken();
+  clearAuth();
   window.location.href = "/login";
 }
 
+export function dashboardHomeForRole(role: AuthUser["role"]) {
+  if (role === "system_admin") return "/admin/tenants";
+  if (role === "tenant_admin") return "/dashboard";
+  return "/login";
+}
+
 export function redirectByRole(role: AuthUser["role"]) {
-  window.location.href = role === "system_admin" ? "/admin/tenants" : "/dashboard";
+  window.location.href = dashboardHomeForRole(role);
 }

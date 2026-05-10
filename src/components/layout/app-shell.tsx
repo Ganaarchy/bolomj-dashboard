@@ -9,9 +9,10 @@ import {
   LogOut,
   Menu,
   Plane,
+  UserCircle,
 } from "lucide-react";
 import { logout } from "@/lib/auth";
-import type { AuthUser, UserRole } from "@/lib/types";
+import type { AuthUser, DashboardRole } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 
@@ -19,37 +20,49 @@ const navigation: Array<{
   href: string;
   label: string;
   icon: React.ElementType;
-  roles: UserRole[];
+  roles: DashboardRole[];
 }> = [
-  {
-    href: "/dashboard",
-    label: "Хянах самбар",
-    icon: BarChart3,
-    roles: ["tenant_admin"],
-  },
-  {
-    href: "/tours",
-    label: "Аяллууд",
-    icon: Plane,
-    roles: ["tenant_admin"],
-  },
-  {
-    href: "/bookings",
-    label: "Захиалгууд",
-    icon: CalendarCheck,
-    roles: ["tenant_admin"],
-  },
   {
     href: "/admin/tenants",
     label: "Тенантууд",
     icon: Building2,
     roles: ["system_admin"],
   },
+  {
+    href: "/dashboard",
+    label: "Хянах самбар",
+    icon: BarChart3,
+    roles: ["tenant_admin", "system_admin"],
+  },
+  {
+    href: "/tours",
+    label: "Аяллууд",
+    icon: Plane,
+    roles: ["tenant_admin", "system_admin"],
+  },
+  {
+    href: "/bookings",
+    label: "Захиалгууд",
+    icon: CalendarCheck,
+    roles: ["tenant_admin", "system_admin"],
+  },
+  {
+    href: "/profile",
+    label: "Профайл",
+    icon: UserCircle,
+    roles: ["tenant_admin", "system_admin"],
+  },
 ];
 
 function getDisplayName(user: AuthUser) {
   const fullName = [user.first_name, user.last_name].filter(Boolean).join(" ");
-  return fullName || user.name || user.email;
+  return fullName || user.email;
+}
+
+function getRoleLabel(role: AuthUser["role"]) {
+  if (role === "system_admin") return "System admin";
+  if (role === "tenant_admin") return "Tenant admin";
+  return role;
 }
 
 export function AppShell({
@@ -60,7 +73,13 @@ export function AppShell({
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
-  const items = navigation.filter((item) => item.roles.includes(user.role));
+  const dashboardRole: DashboardRole | null =
+    user.role === "system_admin" || user.role === "tenant_admin"
+      ? user.role
+      : null;
+  const items = dashboardRole
+    ? navigation.filter((item) => item.roles.includes(dashboardRole))
+    : [];
 
   return (
     <div className="min-h-screen bg-background">
@@ -92,11 +111,15 @@ export function AppShell({
             );
           })}
         </nav>
-        <div className="border-t p-4">
-          <p className="truncate text-sm font-medium">{getDisplayName(user)}</p>
-          <p className="text-xs text-muted-foreground">
-            {user.role === "system_admin" ? "System admin" : "Tenant admin"}
-          </p>
+        <div className="space-y-3 border-t p-4">
+          <div>
+            <p className="truncate text-sm font-medium">{getDisplayName(user)}</p>
+            <p className="text-xs text-muted-foreground">{getRoleLabel(user.role)}</p>
+          </div>
+          <Button variant="outline" size="sm" className="w-full" onClick={logout}>
+            <LogOut className="h-4 w-4" />
+            Гарах
+          </Button>
         </div>
       </aside>
 
@@ -114,9 +137,7 @@ export function AppShell({
           <div className="flex items-center gap-2">
             <div className="hidden text-right sm:block">
               <p className="text-sm font-medium">{getDisplayName(user)}</p>
-              <p className="text-xs text-muted-foreground">
-                {user.role === "system_admin" ? "System admin" : "Tenant admin"}
-              </p>
+              <p className="text-xs text-muted-foreground">{getRoleLabel(user.role)}</p>
             </div>
             <Button variant="outline" size="sm" onClick={logout}>
               <LogOut className="h-4 w-4" />
