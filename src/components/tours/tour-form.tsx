@@ -76,6 +76,7 @@ export function TourForm({ tour }: { tour?: Tour }) {
   const router = useRouter();
   const [form, setForm] = useState<FormState>(() => initialState(tour));
   const [coverFile, setCoverFile] = useState<File | null>(null);
+  const [coverUploading, setCoverUploading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -124,9 +125,7 @@ export function TourForm({ tour }: { tour?: Tour }) {
     };
   }
 
-  async function uploadCoverImage() {
-    if (!coverFile) return optionalString(form.cover_image_url);
-
+  async function uploadCoverImage(file: File) {
     const allowedTypes: CreatePresignedUploadPayload["contentType"][] = [
       "image/jpeg",
       "image/png",
@@ -135,7 +134,7 @@ export function TourForm({ tour }: { tour?: Tour }) {
 
     if (
       !allowedTypes.includes(
-        coverFile.type as CreatePresignedUploadPayload["contentType"],
+        file.type as CreatePresignedUploadPayload["contentType"],
       )
     ) {
       throw new Error("Cover image must be JPG, PNG, or WebP.");
@@ -143,16 +142,16 @@ export function TourForm({ tour }: { tour?: Tour }) {
 
     const upload = await api.createPresignedUpload({
       folder: "tours",
-      fileName: coverFile.name,
-      contentType: coverFile.type as CreatePresignedUploadPayload["contentType"],
+      fileName: file.name,
+      contentType: file.type as CreatePresignedUploadPayload["contentType"],
     });
 
     const response = await fetch(upload.uploadUrl, {
       method: "PUT",
       headers: {
-        "Content-Type": coverFile.type,
+        "Content-Type": file.type,
       },
-      body: coverFile,
+      body: file,
     });
 
     if (!response.ok) {
@@ -166,6 +165,22 @@ export function TourForm({ tour }: { tour?: Tour }) {
     setCoverFile(null);
 
     return upload.fileUrl;
+  }
+
+  async function handleCoverFileChange(file: File | null) {
+    setError(null);
+    setCoverFile(file);
+
+    if (!file) return;
+
+    setCoverUploading(true);
+    try {
+      await uploadCoverImage(file);
+    } catch (err) {
+      setError(getErrorMessage(err));
+    } finally {
+      setCoverUploading(false);
+    }
   }
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
@@ -189,11 +204,7 @@ export function TourForm({ tour }: { tour?: Tour }) {
 
     setSubmitting(true);
     try {
-      const coverImageUrl = await uploadCoverImage();
-      const payload = {
-        ...toPayload(),
-        cover_image_url: coverImageUrl,
-      };
+      const payload = toPayload();
 
       if (mode === "edit" && tour) {
         await api.updateTour(tour.id, payload);
@@ -370,31 +381,34 @@ export function TourForm({ tour }: { tour?: Tour }) {
                 id="cover_file"
                 type="file"
                 accept="image/jpeg,image/png,image/webp"
+                disabled={coverUploading}
                 onChange={(event) => {
-                  setCoverFile(event.target.files?.[0] ?? null);
+                  void handleCoverFileChange(event.target.files?.[0] ?? null);
                 }}
               />
               <p className="text-xs text-muted-foreground">
-                JPG, PNG, or WebP. The image is uploaded when the tour is saved.
+                JPG, PNG, or WebP. The image uploads immediately after selection.
               </p>
             </div>
             <div className="space-y-2">
-              <Label htmlFor="cover_image_url">Image URL</Label>
+              <Label htmlFor="cover_image_url">Uploaded image URL</Label>
               <Input
                 id="cover_image_url"
                 type="url"
                 value={form.cover_image_url}
-                onChange={(event) => {
-                  setCoverFile(null);
-                  update("cover_image_url", event.target.value);
-                }}
-                placeholder="https://..."
+                readOnly
+                placeholder="Uploads fill this automatically"
               />
             </div>
-            {coverFile ? (
+            {coverUploading ? (
               <div className="flex items-center gap-2 rounded-md border bg-muted/30 px-3 py-2 text-sm text-muted-foreground">
                 <Upload className="h-4 w-4" />
-                {coverFile.name}
+                Uploading image...
+              </div>
+            ) : coverFile ? (
+              <div className="flex items-center gap-2 rounded-md border bg-muted/30 px-3 py-2 text-sm text-muted-foreground">
+                <Upload className="h-4 w-4" />
+                Uploaded: {coverFile.name}
               </div>
             ) : null}
           </div>
@@ -460,7 +474,10 @@ export function TourForm({ tour }: { tour?: Tour }) {
         <Button type="button" variant="outline" onClick={() => router.push("/tours")}>
           Болих
         </Button>
-        <Button type="submit" disabled={submitting || isInvalidMarketplace}>
+        <Button
+          type="submit"
+          disabled={submitting || coverUploading || isInvalidMarketplace}
+        >
           <Save className="h-4 w-4" />
           {submitting ? "Хадгалж байна..." : "Хадгалах"}
         </Button>
