@@ -4,12 +4,14 @@ import type {
   ApiDataResponse,
   ApiErrorResponse,
   AuthUser,
+  CreatePresignedUploadPayload,
   BookingStatusUpdateResponse,
   CreateTenantPayload,
   CreateTourPayload,
   DashboardSummary,
   LoginPayload,
   LoginResponse,
+  PresignedUploadResponse,
   TenantBooking,
   TenantStatus,
   Tour,
@@ -176,6 +178,12 @@ export const api = {
     return apiFetch<AdminTenant>(`/admin/tenants/${id}/status`, {
       method: "PATCH",
       body: { status },
+    });
+  },
+  createPresignedUpload(body: CreatePresignedUploadPayload) {
+    return apiFetch<PresignedUploadResponse>("/uploads/presigned-url", {
+      method: "POST",
+      body,
     });
   },
 };

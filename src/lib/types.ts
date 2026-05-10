@@ -78,6 +78,7 @@ export type Tour = {
   status: TourStatus;
   is_featured: boolean;
   published_to_marketplace: boolean;
+  cover_image_url: string | null;
   created_at: string;
   updated_at: string;
 };
@@ -100,9 +101,22 @@ export type CreateTourPayload = {
   status?: TourStatus;
   is_featured?: boolean;
   published_to_marketplace?: boolean;
+  cover_image_url?: string | null;
 };
 
 export type UpdateTourPayload = Partial<CreateTourPayload>;
+
+export type CreatePresignedUploadPayload = {
+  folder: "tours" | "tenants" | "website";
+  fileName: string;
+  contentType: "image/jpeg" | "image/png" | "image/webp";
+};
+
+export type PresignedUploadResponse = {
+  key: string;
+  uploadUrl: string;
+  fileUrl: string;
+};
 
 export type Booking = {
   id: string;

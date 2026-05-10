@@ -1,10 +1,16 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Save } from "lucide-react";
+import { ImageIcon, Save, Upload } from "lucide-react";
 import { api } from "@/lib/api";
-import type { CreateTourPayload, Tour, TourStatus, UpdateTourPayload } from "@/lib/types";
+import type {
+  CreatePresignedUploadPayload,
+  CreateTourPayload,
+  Tour,
+  TourStatus,
+  UpdateTourPayload,
+} from "@/lib/types";
 import { getErrorMessage } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -32,6 +38,7 @@ type FormState = {
   status: TourStatus;
   is_featured: boolean;
   published_to_marketplace: boolean;
+  cover_image_url: string;
 };
 
 function toDateInput(value?: string | null) {
@@ -57,6 +64,7 @@ function initialState(tour?: Tour): FormState {
     status: tour?.status ?? "draft",
     is_featured: tour?.is_featured ?? false,
     published_to_marketplace: tour?.published_to_marketplace ?? false,
+    cover_image_url: tour?.cover_image_url ?? "",
   };
 }
 
@@ -67,6 +75,7 @@ function optionalString(value: string) {
 export function TourForm({ tour }: { tour?: Tour }) {
   const router = useRouter();
   const [form, setForm] = useState<FormState>(() => initialState(tour));
+  const [coverFile, setCoverFile] = useState<File | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -75,6 +84,18 @@ export function TourForm({ tour }: { tour?: Tour }) {
     () => form.published_to_marketplace && form.status !== "published",
     [form.published_to_marketplace, form.status],
   );
+  const coverPreviewUrl = useMemo(
+    () => (coverFile ? URL.createObjectURL(coverFile) : form.cover_image_url),
+    [coverFile, form.cover_image_url],
+  );
+
+  useEffect(() => {
+    return () => {
+      if (coverPreviewUrl.startsWith("blob:")) {
+        URL.revokeObjectURL(coverPreviewUrl);
+      }
+    };
+  }, [coverPreviewUrl]);
 
   function update<K extends keyof FormState>(key: K, value: FormState[K]) {
     setForm((current) => ({ ...current, [key]: value }));
@@ -99,7 +120,52 @@ export function TourForm({ tour }: { tour?: Tour }) {
       status: form.status,
       is_featured: form.is_featured,
       published_to_marketplace: form.published_to_marketplace,
+      cover_image_url: optionalString(form.cover_image_url),
     };
+  }
+
+  async function uploadCoverImage() {
+    if (!coverFile) return optionalString(form.cover_image_url);
+
+    const allowedTypes: CreatePresignedUploadPayload["contentType"][] = [
+      "image/jpeg",
+      "image/png",
+      "image/webp",
+    ];
+
+    if (
+      !allowedTypes.includes(
+        coverFile.type as CreatePresignedUploadPayload["contentType"],
+      )
+    ) {
+      throw new Error("Cover image must be JPG, PNG, or WebP.");
+    }
+
+    const upload = await api.createPresignedUpload({
+      folder: "tours",
+      fileName: coverFile.name,
+      contentType: coverFile.type as CreatePresignedUploadPayload["contentType"],
+    });
+
+    const response = await fetch(upload.uploadUrl, {
+      method: "PUT",
+      headers: {
+        "Content-Type": coverFile.type,
+      },
+      body: coverFile,
+    });
+
+    if (!response.ok) {
+      throw new Error("Image upload failed.");
+    }
+
+    setForm((current) => ({
+      ...current,
+      cover_image_url: upload.fileUrl,
+    }));
+    setCoverFile(null);
+
+    return upload.fileUrl;
   }
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
@@ -123,10 +189,16 @@ export function TourForm({ tour }: { tour?: Tour }) {
 
     setSubmitting(true);
     try {
+      const coverImageUrl = await uploadCoverImage();
+      const payload = {
+        ...toPayload(),
+        cover_image_url: coverImageUrl,
+      };
+
       if (mode === "edit" && tour) {
-        await api.updateTour(tour.id, toPayload());
+        await api.updateTour(tour.id, payload);
       } else {
-        await api.createTour(toPayload() as CreateTourPayload);
+        await api.createTour(payload as CreateTourPayload);
       }
       router.push("/tours");
       router.refresh();
@@ -267,6 +339,64 @@ export function TourForm({ tour }: { tour?: Tour }) {
               value={form.meeting_point}
               onChange={(event) => update("meeting_point", event.target.value)}
             />
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Cover image</CardTitle>
+        </CardHeader>
+        <CardContent className="grid gap-4 lg:grid-cols-[280px_1fr]">
+          <div className="flex min-h-44 items-center justify-center overflow-hidden rounded-md border bg-muted/30">
+            {coverPreviewUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={coverPreviewUrl}
+                alt="Tour cover preview"
+                className="h-full max-h-56 w-full object-cover"
+              />
+            ) : (
+              <div className="flex flex-col items-center gap-2 text-sm text-muted-foreground">
+                <ImageIcon className="h-8 w-8" />
+                No image selected
+              </div>
+            )}
+          </div>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="cover_file">Upload banner image</Label>
+              <Input
+                id="cover_file"
+                type="file"
+                accept="image/jpeg,image/png,image/webp"
+                onChange={(event) => {
+                  setCoverFile(event.target.files?.[0] ?? null);
+                }}
+              />
+              <p className="text-xs text-muted-foreground">
+                JPG, PNG, or WebP. The image is uploaded when the tour is saved.
+              </p>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="cover_image_url">Image URL</Label>
+              <Input
+                id="cover_image_url"
+                type="url"
+                value={form.cover_image_url}
+                onChange={(event) => {
+                  setCoverFile(null);
+                  update("cover_image_url", event.target.value);
+                }}
+                placeholder="https://..."
+              />
+            </div>
+            {coverFile ? (
+              <div className="flex items-center gap-2 rounded-md border bg-muted/30 px-3 py-2 text-sm text-muted-foreground">
+                <Upload className="h-4 w-4" />
+                {coverFile.name}
+              </div>
+            ) : null}
           </div>
         </CardContent>
       </Card>

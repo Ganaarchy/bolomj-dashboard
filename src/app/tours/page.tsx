@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Archive, Edit, Plus, Rocket, Search } from "lucide-react";
+import { Archive, Edit, ImageIcon, Plus, Rocket, Search } from "lucide-react";
 import { ApiError, api } from "@/lib/api";
 import type { Tour, TourStatus } from "@/lib/types";
 import { formatCurrency, formatDate, getErrorMessage } from "@/lib/utils";
@@ -201,8 +201,24 @@ function ToursContent() {
                 {filteredTours.map((tour) => (
                   <TableRow key={tour.id}>
                     <TableCell>
-                      <div className="font-medium">{tour.title}</div>
-                      <div className="text-xs text-muted-foreground">{tour.slug}</div>
+                      <div className="flex items-center gap-3">
+                        <div className="flex h-12 w-16 shrink-0 items-center justify-center overflow-hidden rounded-md border bg-muted/30">
+                          {tour.cover_image_url ? (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img
+                              src={tour.cover_image_url}
+                              alt=""
+                              className="h-full w-full object-cover"
+                            />
+                          ) : (
+                            <ImageIcon className="h-5 w-5 text-muted-foreground" />
+                          )}
+                        </div>
+                        <div>
+                          <div className="font-medium">{tour.title}</div>
+                          <div className="text-xs text-muted-foreground">{tour.slug}</div>
+                        </div>
+                      </div>
                     </TableCell>
                     <TableCell>
                       {[tour.destination_city, tour.destination_country]
