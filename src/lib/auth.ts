@@ -1,4 +1,4 @@
-import { STORAGE_KEYS, type AuthUser } from "@/lib/types";
+import { STORAGE_KEYS, type AuthUser, type DashboardRole } from "@/lib/types";
 
 export function getToken() {
   if (typeof window === "undefined") return null;
@@ -36,6 +36,10 @@ export function getStoredUser(): AuthUser | null {
 export function logout() {
   clearAuth();
   window.location.href = "/login";
+}
+
+export function isDashboardRole(role: AuthUser["role"]): role is DashboardRole {
+  return role === "system_admin" || role === "tenant_admin";
 }
 
 export function dashboardHomeForRole(role: AuthUser["role"]) {

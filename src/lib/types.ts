@@ -10,7 +10,12 @@ export type ApiErrorResponse = {
 
 export type ApiResponse<T> = T | ApiDataResponse<T>;
 
-export type UserRole = "guest" | "system_admin" | "tenant_admin" | "user";
+export type UserRole =
+  | "guest"
+  | "system_admin"
+  | "tenant_admin"
+  | "customer"
+  | "user";
 
 export type DashboardRole = "system_admin" | "tenant_admin";
 

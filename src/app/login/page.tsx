@@ -3,7 +3,14 @@
 import { useEffect, useState } from "react";
 import { LockKeyhole, LogIn } from "lucide-react";
 import { api } from "@/lib/api";
-import { clearAuth, getToken, redirectByRole, setStoredUser, setToken } from "@/lib/auth";
+import {
+  clearAuth,
+  getToken,
+  isDashboardRole,
+  redirectByRole,
+  setStoredUser,
+  setToken,
+} from "@/lib/auth";
 import { getErrorMessage } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -21,6 +28,11 @@ export default function LoginPage() {
     api
       .me()
       .then((user) => {
+        if (!isDashboardRole(user.role)) {
+          clearAuth();
+          setError("Dashboard login is only available for admin accounts.");
+          return;
+        }
         setStoredUser(user);
         redirectByRole(user.role);
       })
@@ -36,6 +48,11 @@ export default function LoginPage() {
 
     try {
       const response = await api.login({ email, password });
+      if (!isDashboardRole(response.user.role)) {
+        clearAuth();
+        setError("Dashboard login is only available for admin accounts.");
+        return;
+      }
       setToken(response.accessToken);
       setStoredUser(response.user);
       redirectByRole(response.user.role);

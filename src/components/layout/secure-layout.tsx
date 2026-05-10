@@ -2,7 +2,13 @@
 
 import { useEffect, useState } from "react";
 import { ApiError, api } from "@/lib/api";
-import { getStoredUser, getToken, redirectByRole, setStoredUser } from "@/lib/auth";
+import {
+  clearAuth,
+  getStoredUser,
+  getToken,
+  isDashboardRole,
+  setStoredUser,
+} from "@/lib/auth";
 import type { AuthUser, DashboardRole } from "@/lib/types";
 import { getErrorMessage } from "@/lib/utils";
 import { AppShell } from "@/components/layout/app-shell";
@@ -30,8 +36,9 @@ export function SecureLayout({
       }
 
       const cached = getStoredUser();
-      if (cached && cached.role !== "system_admin" && cached.role !== "tenant_admin") {
-        redirectByRole(cached.role);
+      if (cached && !isDashboardRole(cached.role)) {
+        clearAuth();
+        window.location.href = "/login";
         return;
       }
 
@@ -43,11 +50,12 @@ export function SecureLayout({
       try {
         const me = await api.me();
         if (cancelled) return;
-        setStoredUser(me);
-        if (me.role !== "system_admin" && me.role !== "tenant_admin") {
-          redirectByRole(me.role);
+        if (!isDashboardRole(me.role)) {
+          clearAuth();
+          window.location.href = "/login";
           return;
         }
+        setStoredUser(me);
         setUser(me);
         setError(null);
         setForbidden(false);
