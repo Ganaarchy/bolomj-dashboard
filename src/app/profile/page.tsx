@@ -1,12 +1,21 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { Building2, Mail, Save, Shield, UserCircle } from "lucide-react";
+import {
+  Building2,
+  ImageIcon,
+  Mail,
+  Save,
+  Shield,
+  Upload,
+  UserCircle,
+} from "lucide-react";
 import { ApiError, api } from "@/lib/api";
 import type {
   AdminTenant,
   AuthUser,
-  TenantStatus,
+  CreatePresignedUploadPayload,
+  UpdateTenantAdminProfilePayload,
   UpdateTenantProfilePayload,
 } from "@/lib/types";
 import { getErrorMessage } from "@/lib/utils";
@@ -17,14 +26,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ErrorState, ForbiddenState, LoadingState } from "@/components/ui/page-state";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-
-const tenantStatusOptions: Array<{ label: string; value: TenantStatus }> = [
-  { label: "Хүлээгдэж буй", value: "pending" },
-  { label: "Идэвхтэй", value: "active" },
-  { label: "Түдгэлзсэн", value: "suspended" },
-];
 
 const emptyTenantForm: UpdateTenantProfilePayload = {
   name: "",
@@ -78,6 +80,17 @@ function compactTenantPayload(
   };
 }
 
+function compactTenantAdminProfilePayload(
+  form: UpdateTenantProfilePayload,
+): UpdateTenantAdminProfilePayload {
+  return {
+    phone: form.phone?.trim() || null,
+    logo_url: form.logo_url?.trim() || null,
+    banner_url: form.banner_url?.trim() || null,
+    description: form.description?.trim() || null,
+  };
+}
+
 function UserCard({ user }: { user: AuthUser }) {
   return (
     <Card>
@@ -122,6 +135,8 @@ function ProfileContent() {
     useState<UpdateTenantProfilePayload>(emptyTenantForm);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [uploadingLogo, setUploadingLogo] = useState(false);
+  const [uploadingBanner, setUploadingBanner] = useState(false);
   const [success, setSuccess] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [forbidden, setForbidden] = useState(false);
@@ -162,13 +177,77 @@ function ProfileContent() {
     setForm((current) => ({ ...current, [key]: value }));
   }
 
+  async function uploadTenantImage(
+    file: File,
+    target: "logo_url" | "banner_url",
+  ) {
+    const allowedTypes: CreatePresignedUploadPayload["contentType"][] = [
+      "image/jpeg",
+      "image/png",
+      "image/webp",
+    ];
+
+    if (
+      !allowedTypes.includes(
+        file.type as CreatePresignedUploadPayload["contentType"],
+      )
+    ) {
+      throw new Error("Image must be JPG, PNG, or WebP.");
+    }
+
+    const presigned = await api.createPresignedUpload({
+      folder: "tenants",
+      fileName: file.name,
+      contentType: file.type as CreatePresignedUploadPayload["contentType"],
+    });
+
+    const uploadRes = await fetch(presigned.uploadUrl, {
+      method: "PUT",
+      headers: {
+        "Content-Type": file.type,
+        "x-amz-acl": "public-read",
+      },
+      body: file,
+    });
+
+    if (!uploadRes.ok) {
+      throw new Error("Image upload failed.");
+    }
+
+    updateForm(target, presigned.fileUrl);
+  }
+
+  async function handleTenantImageChange(
+    file: File | null,
+    target: "logo_url" | "banner_url",
+  ) {
+    if (!file) return;
+
+    setError(null);
+    const setUploading =
+      target === "logo_url" ? setUploadingLogo : setUploadingBanner;
+    setUploading(true);
+    try {
+      await uploadTenantImage(file, target);
+    } catch (err) {
+      setError(getErrorMessage(err));
+    } finally {
+      setUploading(false);
+    }
+  }
+
   async function saveTenant(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setSaving(true);
     setError(null);
     setSuccess(null);
     try {
-      const updated = await api.updateTenantProfile(compactTenantPayload(form));
+      // tenant_admin can only update editable profile fields; status is system_admin-only
+      const payload =
+        user?.role === "tenant_admin"
+          ? compactTenantAdminProfilePayload(form)
+          : compactTenantPayload(form);
+      const updated = await api.updateTenantProfile(payload);
       setTenant(updated);
       setForm(tenantToForm(updated));
       setSuccess("Байгууллагын мэдээлэл шинэчлэгдлээ.");
@@ -212,7 +291,8 @@ function ProfileContent() {
                     <Input
                       id="tenant-name"
                       value={form.name}
-                      onChange={(event) => updateForm("name", event.target.value)}
+                      readOnly
+                      disabled
                       required
                     />
                   </div>
@@ -221,7 +301,8 @@ function ProfileContent() {
                     <Input
                       id="tenant-slug"
                       value={form.slug}
-                      onChange={(event) => updateForm("slug", event.target.value)}
+                      readOnly
+                      disabled
                       required
                     />
                   </div>
@@ -230,18 +311,8 @@ function ProfileContent() {
                     <Input
                       id="tenant-registration"
                       value={form.registration_number ?? ""}
-                      onChange={(event) =>
-                        updateForm("registration_number", event.target.value)
-                      }
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="tenant-status">Status</Label>
-                    <Select<TenantStatus>
-                      id="tenant-status"
-                      value={form.status}
-                      onValueChange={(value) => updateForm("status", value)}
-                      options={tenantStatusOptions}
+                      readOnly
+                      disabled
                     />
                   </div>
                   <div className="space-y-2">
@@ -250,7 +321,8 @@ function ProfileContent() {
                       id="tenant-email"
                       type="email"
                       value={form.email ?? ""}
-                      onChange={(event) => updateForm("email", event.target.value)}
+                      readOnly
+                      disabled
                     />
                   </div>
                   <div className="space-y-2">
@@ -263,25 +335,73 @@ function ProfileContent() {
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="tenant-logo">Logo URL</Label>
-                    <Input
-                      id="tenant-logo"
-                      type="url"
-                      value={form.logo_url ?? ""}
-                      onChange={(event) =>
-                        updateForm("logo_url", event.target.value)
-                      }
-                    />
+                    <div className="flex gap-2">
+                      <Input
+                        id="tenant-logo"
+                        type="url"
+                        value={form.logo_url ?? ""}
+                        onChange={(event) =>
+                          updateForm("logo_url", event.target.value)
+                        }
+                      />
+                      <Button
+                        type="button"
+                        variant="outline"
+                        className="relative shrink-0 overflow-hidden"
+                        disabled={uploadingLogo}
+                      >
+                        <Upload className="h-4 w-4" />
+                        {uploadingLogo ? "Uploading" : "Upload"}
+                        <input
+                          aria-label="Upload logo"
+                          className="absolute inset-0 cursor-pointer opacity-0 disabled:cursor-not-allowed"
+                          type="file"
+                          accept="image/jpeg,image/png,image/webp"
+                          disabled={uploadingLogo}
+                          onChange={(event) =>
+                            handleTenantImageChange(
+                              event.target.files?.[0] ?? null,
+                              "logo_url",
+                            )
+                          }
+                        />
+                      </Button>
+                    </div>
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="tenant-banner">Banner URL</Label>
-                    <Input
-                      id="tenant-banner"
-                      type="url"
-                      value={form.banner_url ?? ""}
-                      onChange={(event) =>
-                        updateForm("banner_url", event.target.value)
-                      }
-                    />
+                    <div className="flex gap-2">
+                      <Input
+                        id="tenant-banner"
+                        type="url"
+                        value={form.banner_url ?? ""}
+                        onChange={(event) =>
+                          updateForm("banner_url", event.target.value)
+                        }
+                      />
+                      <Button
+                        type="button"
+                        variant="outline"
+                        className="relative shrink-0 overflow-hidden"
+                        disabled={uploadingBanner}
+                      >
+                        <ImageIcon className="h-4 w-4" />
+                        {uploadingBanner ? "Uploading" : "Upload"}
+                        <input
+                          aria-label="Upload banner"
+                          className="absolute inset-0 cursor-pointer opacity-0 disabled:cursor-not-allowed"
+                          type="file"
+                          accept="image/jpeg,image/png,image/webp"
+                          disabled={uploadingBanner}
+                          onChange={(event) =>
+                            handleTenantImageChange(
+                              event.target.files?.[0] ?? null,
+                              "banner_url",
+                            )
+                          }
+                        />
+                      </Button>
+                    </div>
                   </div>
                   <div className="space-y-2 md:col-span-2">
                     <Label htmlFor="tenant-description">Description</Label>
@@ -299,7 +419,10 @@ function ProfileContent() {
                     </p>
                   ) : null}
                   <div className="flex justify-end md:col-span-2">
-                    <Button type="submit" disabled={saving}>
+                    <Button
+                      type="submit"
+                      disabled={saving || uploadingLogo || uploadingBanner}
+                    >
                       <Save className="h-4 w-4" />
                       {saving ? "Хадгалж байна..." : "Хадгалах"}
                     </Button>

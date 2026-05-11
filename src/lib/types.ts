@@ -198,6 +198,11 @@ export type UpdateTenantProfilePayload = {
   status?: TenantStatus;
 };
 
+export type UpdateTenantAdminProfilePayload = Pick<
+  UpdateTenantProfilePayload,
+  "phone" | "logo_url" | "banner_url" | "description"
+>;
+
 export type CreateTenantResponse = {
   message: string;
   data: {

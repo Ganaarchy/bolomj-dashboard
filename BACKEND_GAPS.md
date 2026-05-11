@@ -39,18 +39,13 @@ Impact:
 
 - Tenant admins need these endpoints to view and edit their own tenant record from `/profile`.
 - The dashboard now expects `GET /tenant/profile` to return the authenticated user's tenant as the same shape as `AdminTenant`.
-- The dashboard now sends `PATCH /tenant/profile` with:
-  - `name`
-  - `slug`
-  - `registration_number`
-  - `email`
+- The dashboard now sends `PATCH /tenant/profile` for tenant admins with only editable profile fields:
   - `phone`
   - `logo_url`
   - `banner_url`
   - `description`
-  - `status`
 - Backend should scope the update to `req.user.tenant_id`; the client must not send or choose a tenant id for this flow.
-- Backend should validate slug uniqueness and decide whether tenant admins are allowed to update `status`. If not, return a clear 403/400 so the UI can show the backend message.
+- `status`, `name`, `slug`, `registration_number`, `email`, and system/admin-only fields must remain backend-protected. Tenant admins must not be allowed to update them.
 
 ## Acceptance Rules
 

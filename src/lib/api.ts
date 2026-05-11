@@ -18,6 +18,7 @@ import type {
   TenantRequestRejectPayload,
   TenantStatus,
   Tour,
+  UpdateTenantAdminProfilePayload,
   UpdateTenantProfilePayload,
   UpdateBookingStatusPayload,
   UpdateTourPayload,
@@ -138,7 +139,9 @@ export const api = {
   tenantProfile() {
     return apiFetch<AdminTenant>("/tenant/profile");
   },
-  updateTenantProfile(body: UpdateTenantProfilePayload) {
+  updateTenantProfile(
+    body: UpdateTenantProfilePayload | UpdateTenantAdminProfilePayload,
+  ) {
     return apiFetch<AdminTenant>("/tenant/profile", {
       method: "PATCH",
       body,
