@@ -114,7 +114,7 @@ function DashboardContent() {
 
 export default function DashboardPage() {
   return (
-    <SecureLayout roles={["tenant_admin", "system_admin"]}>
+    <SecureLayout roles={["tenant_admin"]}>
       <DashboardContent />
     </SecureLayout>
   );

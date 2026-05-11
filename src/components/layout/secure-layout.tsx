@@ -1,9 +1,11 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { ApiError, api } from "@/lib/api";
 import {
   clearAuth,
+  dashboardHomeForRole,
   getStoredUser,
   getToken,
   isDashboardRole,
@@ -21,10 +23,18 @@ export function SecureLayout({
   roles: DashboardRole[];
   children: React.ReactNode;
 }) {
+  const router = useRouter();
   const [user, setUser] = useState<AuthUser | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [forbidden, setForbidden] = useState(false);
+  const dashboardRole = user && isDashboardRole(user.role) ? user.role : null;
+  const isAllowed = dashboardRole ? roles.includes(dashboardRole) : false;
+  const shouldRedirectSystemAdmin =
+    dashboardRole === "system_admin" &&
+    !isAllowed &&
+    roles.includes("tenant_admin") &&
+    !roles.includes("system_admin");
 
   useEffect(() => {
     let cancelled = false;
@@ -78,6 +88,12 @@ export function SecureLayout({
     };
   }, []);
 
+  useEffect(() => {
+    if (shouldRedirectSystemAdmin) {
+      router.replace(dashboardHomeForRole("system_admin"));
+    }
+  }, [router, shouldRedirectSystemAdmin]);
+
   if (loading) {
     return (
       <div className="min-h-screen p-6">
@@ -104,7 +120,15 @@ export function SecureLayout({
 
   if (!user) return null;
 
-  if (!roles.includes(user.role as DashboardRole)) {
+  if (shouldRedirectSystemAdmin) {
+    return (
+      <AppShell user={user}>
+        <LoadingState label="Redirecting to platform admin..." />
+      </AppShell>
+    );
+  }
+
+  if (!isAllowed) {
     return (
       <AppShell user={user}>
         <ForbiddenState />

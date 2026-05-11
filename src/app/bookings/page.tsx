@@ -201,7 +201,7 @@ function BookingsContent() {
 
 export default function BookingsPage() {
   return (
-    <SecureLayout roles={["tenant_admin", "system_admin"]}>
+    <SecureLayout roles={["tenant_admin"]}>
       <BookingsContent />
     </SecureLayout>
   );

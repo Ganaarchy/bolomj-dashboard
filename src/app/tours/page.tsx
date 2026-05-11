@@ -278,7 +278,7 @@ function ToursContent() {
 
 export default function ToursPage() {
   return (
-    <SecureLayout roles={["tenant_admin", "system_admin"]}>
+    <SecureLayout roles={["tenant_admin"]}>
       <ToursContent />
     </SecureLayout>
   );

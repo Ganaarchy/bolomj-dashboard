@@ -39,19 +39,19 @@ const navigation: Array<{
     href: "/dashboard",
     label: "Хянах самбар",
     icon: BarChart3,
-    roles: ["tenant_admin", "system_admin"],
+    roles: ["tenant_admin"],
   },
   {
     href: "/tours",
     label: "Аяллууд",
     icon: Plane,
-    roles: ["tenant_admin", "system_admin"],
+    roles: ["tenant_admin"],
   },
   {
     href: "/bookings",
     label: "Захиалгууд",
     icon: CalendarCheck,
-    roles: ["tenant_admin", "system_admin"],
+    roles: ["tenant_admin"],
   },
   {
     href: "/profile",

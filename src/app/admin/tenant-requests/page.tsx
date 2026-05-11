@@ -111,21 +111,14 @@ function TenantRequestsContent() {
     }
   }
 
-  function updateRequestStatus(
-    request: AdminTenantRequest,
-    status: AdminTenantRequest["status"],
-  ) {
-    const updated = {
-      ...request,
-      status,
-      updated_at: new Date().toISOString(),
-    };
-
+  function mergeRequest(updated: AdminTenantRequest) {
     setRequests((current) =>
-      current.map((item) => (item.id === request.id ? updated : item)),
+      current.map((item) =>
+        item.id === updated.id ? { ...item, ...updated } : item,
+      ),
     );
     setSelectedRequest((current) =>
-      current?.id === request.id ? { ...current, ...updated } : current,
+      current?.id === updated.id ? { ...current, ...updated } : current,
     );
   }
 
@@ -139,8 +132,8 @@ function TenantRequestsContent() {
     setError(null);
     setSuccess(null);
     try {
-      await api.approveTenantRequest(request.id);
-      updateRequestStatus(request, "approved");
+      const approval = await api.approveTenantRequest(request.id);
+      mergeRequest(approval.request);
       setSuccess("Байгууллага баталгаажиж tenant_admin эрх үүслээ.");
     } catch (err) {
       setError(getErrorMessage(err));
@@ -158,14 +151,11 @@ function TenantRequestsContent() {
     setError(null);
     setSuccess(null);
     try {
-      await api.rejectTenantRequest(
+      const updated = await api.rejectTenantRequest(
         rejectTarget.id,
         reason ? { rejection_reason: reason } : undefined,
       );
-      updateRequestStatus(
-        reason ? { ...rejectTarget, rejection_reason: reason } : rejectTarget,
-        "rejected",
-      );
+      mergeRequest(updated);
       setRejectTarget(null);
       setRejectReason("");
       setSuccess("Хүсэлт татгалзлаа.");

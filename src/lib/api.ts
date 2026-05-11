@@ -14,6 +14,7 @@ import type {
   LoginResponse,
   PresignedUploadResponse,
   TenantBooking,
+  TenantRequestApprovalResponse,
   TenantRequestRejectPayload,
   TenantStatus,
   Tour,
@@ -191,9 +192,12 @@ export const api = {
     return apiFetch<AdminTenantRequest>(`/admin/tenant-requests/${id}`);
   },
   approveTenantRequest(id: string) {
-    return apiFetch<AdminTenantRequest>(`/admin/tenant-requests/${id}/approve`, {
-      method: "PATCH",
-    });
+    return apiFetch<TenantRequestApprovalResponse>(
+      `/admin/tenant-requests/${id}/approve`,
+      {
+        method: "PATCH",
+      },
+    );
   },
   rejectTenantRequest(id: string, body?: TenantRequestRejectPayload) {
     return apiFetch<AdminTenantRequest>(`/admin/tenant-requests/${id}/reject`, {

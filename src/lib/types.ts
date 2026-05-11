@@ -231,6 +231,13 @@ export type AdminTenantRequest = {
   rejected_at?: string | null;
 };
 
+export type TenantRequestApprovalResponse = {
+  request: AdminTenantRequest;
+  tenant: AdminTenant;
+  adminUser: AuthUser;
+  websiteUrl: string;
+};
+
 export type TenantRequestRejectPayload = {
   rejection_reason?: string;
 };

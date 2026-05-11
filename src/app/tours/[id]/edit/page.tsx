@@ -54,7 +54,7 @@ function EditTourContent() {
 
 export default function EditTourPage() {
   return (
-    <SecureLayout roles={["tenant_admin", "system_admin"]}>
+    <SecureLayout roles={["tenant_admin"]}>
       <EditTourContent />
     </SecureLayout>
   );
