@@ -108,10 +108,45 @@ export type CreateTourPayload = {
 
 export type UpdateTourPayload = Partial<CreateTourPayload>;
 
+export type TourMediaType = "image" | "video";
+
+export type TourMedia = {
+  id: string;
+  tourId: string;
+  tenantId: string;
+  mediaType: TourMediaType;
+  url: string;
+  caption: string | null;
+  sortOrder: number;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type CreateTourMediaPayload = {
+  mediaType: TourMediaType;
+  url: string;
+  caption?: string | null;
+  sortOrder: number;
+};
+
+export type UpdateTourMediaPayload = Partial<CreateTourMediaPayload>;
+
+export type ReorderTourMediaPayload = {
+  items: Array<{
+    id: string;
+    sortOrder: number;
+  }>;
+};
+
 export type CreatePresignedUploadPayload = {
   folder: "tours" | "tenants" | "website";
   fileName: string;
-  contentType: "image/jpeg" | "image/png" | "image/webp";
+  contentType:
+    | "image/jpeg"
+    | "image/png"
+    | "image/webp"
+    | "video/mp4"
+    | "video/webm";
 };
 
 export type PresignedUploadResponse = {

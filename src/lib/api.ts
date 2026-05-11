@@ -6,6 +6,7 @@ import type {
   ApiErrorResponse,
   AuthUser,
   CreatePresignedUploadPayload,
+  CreateTourMediaPayload,
   BookingStatusUpdateResponse,
   CreateTenantPayload,
   CreateTourPayload,
@@ -18,10 +19,13 @@ import type {
   TenantRequestRejectPayload,
   TenantStatus,
   Tour,
+  TourMedia,
   UpdateTenantAdminProfilePayload,
   UpdateTenantProfilePayload,
   UpdateBookingStatusPayload,
+  UpdateTourMediaPayload,
   UpdateTourPayload,
+  ReorderTourMediaPayload,
 } from "@/lib/types";
 
 const API_BASE_URL = (
@@ -165,6 +169,36 @@ export const api = {
   updateTour(id: string, body: UpdateTourPayload) {
     return apiFetch<Partial<Tour>>(`/tenant/tours/${id}`, {
       method: "PATCH",
+      body,
+    });
+  },
+  getTourMedia(tourId: string) {
+    return apiFetch<TourMedia[]>(`/tenant/tours/${tourId}/media`);
+  },
+  createTourMedia(tourId: string, body: CreateTourMediaPayload) {
+    return apiFetch<TourMedia>(`/tenant/tours/${tourId}/media`, {
+      method: "POST",
+      body,
+    });
+  },
+  updateTourMedia(
+    tourId: string,
+    mediaId: string,
+    body: UpdateTourMediaPayload,
+  ) {
+    return apiFetch<TourMedia>(`/tenant/tours/${tourId}/media/${mediaId}`, {
+      method: "PATCH",
+      body,
+    });
+  },
+  deleteTourMedia(tourId: string, mediaId: string) {
+    return apiFetch<void>(`/tenant/tours/${tourId}/media/${mediaId}`, {
+      method: "DELETE",
+    });
+  },
+  reorderTourMedia(tourId: string, body: ReorderTourMediaPayload) {
+    return apiFetch<TourMedia[]>(`/tenant/tours/${tourId}/media/reorder`, {
+      method: "PUT",
       body,
     });
   },

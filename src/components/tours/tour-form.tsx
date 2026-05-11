@@ -2,16 +2,17 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { ImageIcon, Save, Upload } from "lucide-react";
+import { ImageIcon, Save, Trash2, Upload, Video } from "lucide-react";
 import { api } from "@/lib/api";
 import { getStoredUser } from "@/lib/auth";
 import type {
-  CreatePresignedUploadPayload,
   CreateTourPayload,
   Tour,
+  TourMedia,
   TourStatus,
   UpdateTourPayload,
 } from "@/lib/types";
+import { uploadFileToSpaces } from "@/lib/uploads";
 import { getErrorMessage } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -73,11 +74,26 @@ function optionalString(value: string) {
   return value.trim() || undefined;
 }
 
+const IMAGE_UPLOAD_TYPES = ["image/jpeg", "image/png", "image/webp"];
+const VIDEO_UPLOAD_TYPES = ["video/mp4", "video/webm"];
+const MAX_DETAIL_IMAGE_SIZE = 5 * 1024 * 1024;
+const MAX_DETAIL_VIDEO_SIZE = 50 * 1024 * 1024;
+
+function bySortOrder(a: TourMedia, b: TourMedia) {
+  return a.sortOrder - b.sortOrder;
+}
+
 export function TourForm({ tour }: { tour?: Tour }) {
   const router = useRouter();
   const [form, setForm] = useState<FormState>(() => initialState(tour));
   const [coverFile, setCoverFile] = useState<File | null>(null);
   const [coverUploading, setCoverUploading] = useState(false);
+  const [tourMedia, setTourMedia] = useState<TourMedia[]>([]);
+  const [mediaLoading, setMediaLoading] = useState(false);
+  const [mediaError, setMediaError] = useState<string | null>(null);
+  const [photosUploading, setPhotosUploading] = useState(false);
+  const [videoUploading, setVideoUploading] = useState(false);
+  const [deletingMediaIds, setDeletingMediaIds] = useState<string[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -90,6 +106,14 @@ export function TourForm({ tour }: { tour?: Tour }) {
     () => (coverFile ? URL.createObjectURL(coverFile) : form.cover_image_url),
     [coverFile, form.cover_image_url],
   );
+  const detailPhotos = useMemo(
+    () => tourMedia.filter((media) => media.mediaType === "image").sort(bySortOrder),
+    [tourMedia],
+  );
+  const detailVideo = useMemo(
+    () => tourMedia.find((media) => media.mediaType === "video") ?? null,
+    [tourMedia],
+  );
 
   useEffect(() => {
     return () => {
@@ -98,6 +122,30 @@ export function TourForm({ tour }: { tour?: Tour }) {
       }
     };
   }, [coverPreviewUrl]);
+
+  useEffect(() => {
+    if (!tour) return;
+
+    let active = true;
+    setMediaLoading(true);
+    setMediaError(null);
+
+    api
+      .getTourMedia(tour.id)
+      .then((media) => {
+        if (active) setTourMedia(media);
+      })
+      .catch((err) => {
+        if (active) setMediaError(getErrorMessage(err));
+      })
+      .finally(() => {
+        if (active) setMediaLoading(false);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [tour]);
 
   function update<K extends keyof FormState>(key: K, value: FormState[K]) {
     setForm((current) => ({ ...current, [key]: value }));
@@ -127,46 +175,19 @@ export function TourForm({ tour }: { tour?: Tour }) {
   }
 
   async function uploadCoverImage(file: File) {
-    const allowedTypes: CreatePresignedUploadPayload["contentType"][] = [
-      "image/jpeg",
-      "image/png",
-      "image/webp",
-    ];
-
-    if (
-      !allowedTypes.includes(
-        file.type as CreatePresignedUploadPayload["contentType"],
-      )
-    ) {
+    if (!IMAGE_UPLOAD_TYPES.includes(file.type)) {
       throw new Error("Cover image must be JPG, PNG, or WebP.");
     }
 
-    const presigned = await api.createPresignedUpload({
-      folder: "tours",
-      fileName: file.name,
-      contentType: file.type as CreatePresignedUploadPayload["contentType"],
-    });
-
-    const uploadRes = await fetch(presigned.uploadUrl, {
-      method: "PUT",
-      headers: {
-        "Content-Type": file.type,
-        "x-amz-acl": "public-read",
-      },
-      body: file,
-    });
-
-    if (!uploadRes.ok) {
-      throw new Error("Image upload failed.");
-    }
+    const uploaded = await uploadFileToSpaces(file, "tours");
 
     setForm((current) => ({
       ...current,
-      cover_image_url: presigned.fileUrl,
+      cover_image_url: uploaded.fileUrl,
     }));
     setCoverFile(null);
 
-    return presigned.fileUrl;
+    return uploaded.fileUrl;
   }
 
   async function handleCoverFileChange(file: File | null) {
@@ -182,6 +203,104 @@ export function TourForm({ tour }: { tour?: Tour }) {
       setError(getErrorMessage(err));
     } finally {
       setCoverUploading(false);
+    }
+  }
+
+  async function handleDetailPhotoFiles(files: FileList | null) {
+    if (!tour || !files?.length) return;
+
+    const selectedFiles = Array.from(files);
+
+    for (const file of selectedFiles) {
+      if (!IMAGE_UPLOAD_TYPES.includes(file.type)) {
+        setMediaError(`${file.name}: JPG, PNG, эсвэл WebP зураг сонгоно уу.`);
+        return;
+      }
+
+      if (file.size > MAX_DETAIL_IMAGE_SIZE) {
+        setMediaError(`${file.name}: зураг 5MB-аас бага байх ёстой.`);
+        return;
+      }
+    }
+
+    setMediaError(null);
+    setPhotosUploading(true);
+    try {
+      let nextSortOrder = detailPhotos.length;
+
+      for (const file of selectedFiles) {
+        const uploaded = await uploadFileToSpaces(file, "tours");
+        const created = await api.createTourMedia(tour.id, {
+          mediaType: "image",
+          url: uploaded.fileUrl,
+          caption: null,
+          sortOrder: nextSortOrder,
+        });
+
+        nextSortOrder += 1;
+        setTourMedia((current) => [...current, created]);
+      }
+    } catch (err) {
+      setMediaError(getErrorMessage(err));
+    } finally {
+      setPhotosUploading(false);
+    }
+  }
+
+  async function handleDetailVideoFile(file: File | null) {
+    if (!tour || !file) return;
+
+    if (!VIDEO_UPLOAD_TYPES.includes(file.type)) {
+      setMediaError("MP4 эсвэл WebM видео сонгоно уу.");
+      return;
+    }
+
+    if (file.size > MAX_DETAIL_VIDEO_SIZE) {
+      setMediaError("Видео 50MB-аас бага байх ёстой.");
+      return;
+    }
+
+    setMediaError(null);
+    setVideoUploading(true);
+    try {
+      const uploaded = await uploadFileToSpaces(file, "tours");
+      const saved = detailVideo
+        ? await api.updateTourMedia(tour.id, detailVideo.id, {
+            mediaType: "video",
+            url: uploaded.fileUrl,
+            caption: detailVideo.caption,
+            sortOrder: 0,
+          })
+        : await api.createTourMedia(tour.id, {
+            mediaType: "video",
+            url: uploaded.fileUrl,
+            caption: null,
+            sortOrder: 0,
+          });
+
+      setTourMedia((current) => [
+        ...current.filter((media) => media.id !== saved.id && media.mediaType !== "video"),
+        saved,
+      ]);
+    } catch (err) {
+      setMediaError(getErrorMessage(err));
+    } finally {
+      setVideoUploading(false);
+    }
+  }
+
+  async function handleDeleteMedia(mediaId: string) {
+    if (!tour) return;
+
+    setMediaError(null);
+    setDeletingMediaIds((current) => [...current, mediaId]);
+    try {
+      await api.deleteTourMedia(tour.id, mediaId);
+      setTourMedia((current) => current.filter((media) => media.id !== mediaId));
+    } catch (err) {
+      setMediaError(getErrorMessage(err));
+    } finally {
+      setDeletingMediaIds((current) => current.filter((id) => id !== mediaId));
     }
   }
 
@@ -424,6 +543,157 @@ export function TourForm({ tour }: { tour?: Tour }) {
           </div>
         </CardContent>
       </Card>
+
+      {mode === "edit" && tour ? (
+        <Card>
+          <CardHeader>
+            <CardTitle>Нэмэлт зургууд</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {mediaError ? (
+              <div className="rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+                {mediaError}
+              </div>
+            ) : null}
+            <div className="space-y-2">
+              <Label htmlFor="detail_photos">Зураг нэмэх</Label>
+              <Input
+                id="detail_photos"
+                type="file"
+                multiple
+                accept="image/jpeg,image/png,image/webp"
+                disabled={mediaLoading || photosUploading}
+                onChange={(event) => {
+                  const input = event.currentTarget;
+                  void handleDetailPhotoFiles(input.files).finally(() => {
+                    input.value = "";
+                  });
+                }}
+              />
+              <p className="text-xs text-muted-foreground">
+                JPG, PNG, эсвэл WebP. Нэг зураг хамгийн ихдээ 5MB.
+              </p>
+            </div>
+            {mediaLoading ? (
+              <div className="flex items-center gap-2 rounded-md border bg-muted/30 px-3 py-2 text-sm text-muted-foreground">
+                <Upload className="h-4 w-4" />
+                Loading photos...
+              </div>
+            ) : null}
+            {photosUploading ? (
+              <div className="flex items-center gap-2 rounded-md border bg-muted/30 px-3 py-2 text-sm text-muted-foreground">
+                <Upload className="h-4 w-4" />
+                Uploading photos...
+              </div>
+            ) : null}
+            {detailPhotos.length ? (
+              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                {detailPhotos.map((photo) => {
+                  const deleting = deletingMediaIds.includes(photo.id);
+
+                  return (
+                    <div
+                      key={photo.id}
+                      className="overflow-hidden rounded-md border bg-muted/20"
+                    >
+                      <div className="aspect-video bg-muted">
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img
+                          src={photo.url}
+                          alt={photo.caption ?? "Tour detail photo"}
+                          className="h-full w-full object-cover"
+                        />
+                      </div>
+                      <div className="flex items-center justify-end p-2">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          disabled={deleting}
+                          onClick={() => void handleDeleteMedia(photo.id)}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                          {deleting ? "Deleting" : "Delete"}
+                        </Button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            ) : !mediaLoading ? (
+              <div className="flex items-center gap-2 rounded-md border bg-muted/30 px-3 py-2 text-sm text-muted-foreground">
+                <ImageIcon className="h-4 w-4" />
+                No detail photos uploaded.
+              </div>
+            ) : null}
+          </CardContent>
+        </Card>
+      ) : null}
+
+      {mode === "edit" && tour ? (
+        <Card>
+          <CardHeader>
+            <CardTitle>Богино танилцуулга видео</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="detail_video">
+                {detailVideo ? "Видео солих" : "Видео нэмэх"}
+              </Label>
+              <Input
+                id="detail_video"
+                type="file"
+                accept="video/mp4,video/webm"
+                disabled={mediaLoading || videoUploading}
+                onChange={(event) => {
+                  const input = event.currentTarget;
+                  void handleDetailVideoFile(input.files?.[0] ?? null).finally(
+                    () => {
+                      input.value = "";
+                    },
+                  );
+                }}
+              />
+              <p className="text-xs text-muted-foreground">
+                MP4 эсвэл WebM. Зөвлөмж: 50MB-аас бага богино видео.
+              </p>
+            </div>
+            {videoUploading ? (
+              <div className="flex items-center gap-2 rounded-md border bg-muted/30 px-3 py-2 text-sm text-muted-foreground">
+                <Upload className="h-4 w-4" />
+                Uploading video...
+              </div>
+            ) : null}
+            {detailVideo ? (
+              <div className="space-y-3">
+                <video
+                  src={detailVideo.url}
+                  controls
+                  className="max-h-96 w-full rounded-md border bg-black"
+                />
+                <div className="flex justify-end">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    disabled={deletingMediaIds.includes(detailVideo.id)}
+                    onClick={() => void handleDeleteMedia(detailVideo.id)}
+                  >
+                    <Trash2 className="h-4 w-4" />
+                    {deletingMediaIds.includes(detailVideo.id)
+                      ? "Deleting"
+                      : "Remove video"}
+                  </Button>
+                </div>
+              </div>
+            ) : !mediaLoading ? (
+              <div className="flex items-center gap-2 rounded-md border bg-muted/30 px-3 py-2 text-sm text-muted-foreground">
+                <Video className="h-4 w-4" />
+                No detail video uploaded.
+              </div>
+            ) : null}
+          </CardContent>
+        </Card>
+      ) : null}
 
       <Card>
         <CardHeader>
