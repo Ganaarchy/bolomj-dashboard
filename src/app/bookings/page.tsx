@@ -83,7 +83,10 @@ function getPrimaryPassengerName(booking: TenantBooking) {
 function hasCompletePassengerList(booking: TenantBooking) {
   if (!Array.isArray(booking.passengers)) return false;
 
-  return booking.passengers.length >= getPassengerCount(booking);
+  return (
+    booking.passengers.length > 0 &&
+    booking.passengers.length >= getPassengerCount(booking)
+  );
 }
 
 function detailValue(value?: string | null) {

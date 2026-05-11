@@ -70,6 +70,34 @@ function unwrapApiResponse<T>(payload: T | ApiDataResponse<T>): T {
   return payload as T;
 }
 
+function normalizeTenantBookingDetail(payload: unknown): TenantBookingDetail {
+  if (payload && typeof payload === "object") {
+    const value = payload as Record<string, unknown>;
+    const nestedBooking = value.booking;
+
+    if (nestedBooking && typeof nestedBooking === "object") {
+      const booking = nestedBooking as TenantBookingDetail;
+      const passengers = Array.isArray(value.passengers)
+        ? value.passengers
+        : Array.isArray(booking.passengers)
+          ? booking.passengers
+          : [];
+
+      return {
+        ...booking,
+        passengers,
+      } as TenantBookingDetail;
+    }
+
+    return {
+      ...(value as TenantBookingDetail),
+      passengers: Array.isArray(value.passengers) ? value.passengers : [],
+    } as TenantBookingDetail;
+  }
+
+  throw new Error("Захиалгын дэлгэрэнгүй мэдээллийн бүтэц буруу байна.");
+}
+
 async function parseResponse(response: Response) {
   const text = await response.text();
   if (!text) return null;
@@ -207,7 +235,9 @@ export const api = {
     return apiFetch<TenantBooking[]>("/tenant/bookings");
   },
   booking(id: string) {
-    return apiFetch<TenantBookingDetail>(`/tenant/bookings/${id}`);
+    return apiFetch<unknown>(`/tenant/bookings/${id}`).then(
+      normalizeTenantBookingDetail,
+    );
   },
   updateBookingStatus(id: string, body: UpdateBookingStatusPayload) {
     return apiFetch<BookingStatusUpdateResponse>(
