@@ -165,6 +165,7 @@ export type Booking = {
   customer_email: string;
   customer_phone: string | null;
   traveler_count: number;
+  passengers?: BookingPassenger[];
   total_amount: string | number;
   status: BookingStatus;
   note: string | null;
@@ -174,6 +175,29 @@ export type Booking = {
 
 export type TenantBooking = Booking & {
   tour_title: string;
+  passenger_count: number;
+  primary_passenger_name: string | null;
+};
+
+export type BookingPassenger = {
+  id: string;
+  booking_id: string;
+  tenant_id: string;
+  full_name: string;
+  phone: string | null;
+  email: string | null;
+  passport_number: string | null;
+  birth_date: string | null;
+  gender: string | null;
+  nationality: string | null;
+  notes: string | null;
+  is_primary: boolean;
+  created_at: string;
+  updated_at: string;
+};
+
+export type TenantBookingDetail = TenantBooking & {
+  passengers: BookingPassenger[];
 };
 
 export type UpdateBookingStatusPayload = {

@@ -15,6 +15,7 @@ import type {
   LoginResponse,
   PresignedUploadResponse,
   TenantBooking,
+  TenantBookingDetail,
   TenantRequestApprovalResponse,
   TenantRequestRejectPayload,
   TenantStatus,
@@ -204,6 +205,9 @@ export const api = {
   },
   bookings() {
     return apiFetch<TenantBooking[]>("/tenant/bookings");
+  },
+  booking(id: string) {
+    return apiFetch<TenantBookingDetail>(`/tenant/bookings/${id}`);
   },
   updateBookingStatus(id: string, body: UpdateBookingStatusPayload) {
     return apiFetch<BookingStatusUpdateResponse>(
