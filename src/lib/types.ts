@@ -186,6 +186,18 @@ export type TenantStatusUpdatePayload = {
   status: TenantStatus;
 };
 
+export type UpdateTenantProfilePayload = {
+  name: string;
+  slug: string;
+  registration_number?: string | null;
+  email?: string | null;
+  phone?: string | null;
+  logo_url?: string | null;
+  banner_url?: string | null;
+  description?: string | null;
+  status?: TenantStatus;
+};
+
 export type CreateTenantResponse = {
   message: string;
   data: {
